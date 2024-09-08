@@ -4,15 +4,19 @@ import numpy as np
 import pandas as pd
 import folium
 from folium.plugins import HeatMap
+from streamlit_folium import st_folium
 from streamlit_folium import folium_static
 from folium.plugins import MarkerCluster
 import plotly.express as px
+from ipyleaflet import Map, Marker, CircleMarker
+from streamlit.components.v1 import html
+import pydeck as pdk
 
 # Set page configuration
 st.set_page_config(page_title="Disaster Dashboard", page_icon="🌀")
 
 # Sidebar for page selection
-page = st.sidebar.selectbox("NATURAL DISASTERS", ["Home", "Floods", "Landslide", "Earthquake", "Wildfire", "Helpline"])
+page = st.sidebar.radio("Select Page", ["Home", "Floods", "Landslide", "Earthquake", "Helpline", "Contact Us"])
 
 # --------------------------------------
 # Function: Home Page
@@ -257,43 +261,100 @@ def landslide_page():
 # --------------------------------------
 # Function: Earthquake Page
 def earthquake_page():
-    st.header("Disaster Resources")
-    
-    st.subheader("Emergency Contacts")
-    st.write("""
-    - *Fire Department:* 101
-    - *Police:* 100
-    - *Ambulance:* 102
-    """)
+    df = pd.read_csv("Indian_earthquake_data.csv")
+    # Convert 'Origin Time' to datetime
+    df['Origin Time'] = pd.to_datetime(df['Origin Time'])
 
-    st.subheader("Shelters")
-    st.write("""
-    - *City A Shelter:* 123 Main St, City A
-    - *City B Shelter:* 456 Maple Ave, City B
-    """)
+    # Create a time series plot of earthquake frequency
+    fig = px.line(df, x="Origin Time", y="Magnitude", title="Earthquake Magnitude Over Time")
 
-    st.subheader("Useful Links")
-    st.write("[National Disaster Management Authority](https://ndma.gov)")
+    # Display the plot in Streamlit
+    st.plotly_chart(fig)
+    # Create a scatter plot
+    fig = px.scatter(df, x="Magnitude", y="Depth", color="Location",
+                    size="Magnitude", hover_name="Location", 
+                    title="Magnitude vs Depth of Earthquakes")
 
-# --------------------------------------
-# Function: Wildfire Page
-def wildfire_page():
-    st.header("Contact Us")
-    st.write("If you need assistance, please reach out through the following channels:")
+    # Display the plot in Streamlit
+    st.plotly_chart(fig)
 
-    with st.form(key='contact_form'):
-        name = st.text_input("Name")
-        email = st.text_input("Email")
-        message = st.text_area("Message")
-        submit_button = st.form_submit_button(label='Submit')
+    magnitude_range = st.slider("Select Magnitude Range", 
+                                min_value=float(df['Magnitude'].min()), 
+                                max_value=float(df['Magnitude'].max()), 
+                                value=(float(df['Magnitude'].min()), float(df['Magnitude'].max())))
 
-        if submit_button:
-            st.write("Thank you, your message has been sent!")
+    # Filter the dataframe based on the selected magnitude range
+    filtered_df = df[(df['Magnitude'] >= magnitude_range[0]) & (df['Magnitude'] <= magnitude_range[1])]
 
-# --------------------------------------
-# Function: Map Page
+    # Define the layer for earthquake points
+    layer = pdk.Layer(
+        'ScatterplotLayer',
+        data=filtered_df,
+        get_position='[Longitude, Latitude]',
+        get_radius=50000,  # Set point size
+        get_fill_color='[255, 0, 0, 140]' if df['Magnitude'].mean() > 5 else '[0, 0, 255, 140]',
+        pickable=True,
+        auto_highlight=True
+    )
+
+    # Set the viewport for the map
+    view_state = pdk.ViewState(
+        latitude=filtered_df['Latitude'].mean(),
+        longitude=filtered_df['Longitude'].mean(),
+        zoom=2,
+        pitch=0
+    )
+
+    # Render the map
+    r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "{Location}\nMagnitude: {Magnitude}"})
+    st.pydeck_chart(r)
+
+
+    # Create a 3D scatter plot
+    fig = px.scatter_3d(df, x="Longitude", y="Latitude", z="Depth", 
+                        color="Magnitude", size="Magnitude", 
+                        hover_name="Location", title="3D Scatter Plot of Earthquakes")
+
+    # Display the plot in Streamlit
+    st.plotly_chart(fig)
+
+    df = df.dropna(subset=['Latitude', 'Longitude'])
+
+    # Create a base map
+    m = folium.Map(location=[df['Latitude'].mean(), df['Longitude'].mean()], zoom_start=2)
+
+    # Prepare data for heatmap (Latitude, Longitude, Magnitude)
+    heat_data = [[row['Latitude'], row['Longitude'], row['Magnitude']] for index, row in df.iterrows()]
+
+    # Add heatmap layer
+    HeatMap(heat_data).add_to(m)
+
+    # Display the map in Streamlit
+    st_folium(m, width=700, height=500)
+
+# Function: Helpline Page
 def helpline_page():
-    pass
+    st.header("Emergency Helplines")
+    st.write("""
+    In case of emergencies related to natural disasters, please contact the following helplines:
+    - *National Disaster Management Authority (NDMA):* 1800-180-1234
+    - *State Emergency Services:* [Find your local number](https://www.ndma.gov.in/state-emergency-numbers)
+    - *Red Cross:* 1860-266-2345
+    - *Fire Department:* 101
+    - *Police Department:* 100
+    """)
+    st.write("For real-time alerts and updates, download the [Emergency Alert App](https://www.emergencyalertapp.com).")
+
+# Function: Contact Us Page
+def contact_us_page():
+    st.header("Contact Us")
+    st.write("""
+    For any inquiries or feedback, please reach out to us at:
+    - *Email:* support@disastermanagement.org
+    - *Phone:* +91-22-12345678
+    - *Address:* Disaster Management Building, 1st Floor, National Emergency Center, New Delhi, India
+    """)
+    st.write("You can also fill out our [contact form](https://www.disastermanagement.org/contact).")
 
 # --------------------------------------
 # Run the page functions based on the sidebar selection
@@ -305,7 +366,7 @@ elif page == "Landslide":
     landslide_page()
 elif page == "Earthquake":
     earthquake_page()
-elif page == "Wildfire":
-    wildfire_page()
 elif page == "Helpline":
     helpline_page()
+elif page == "Contact Us":
+    contact_us_page()
