@@ -69,7 +69,7 @@ capital Gangtok, the local government of the northeastern Indian state said.
     # Pie chart: Total deaths by Continent
     fig = px.pie(df, values='Total Deaths', names='Continent', title='Total Deaths by Continent')
     st.plotly_chart(fig)
-    st.markdown("#Total people affected by disasters")
+    st.markdown("# Total people affected by disasters")
     def convert_to_numeric(coord):
         try:
             return float(coord)
@@ -216,7 +216,7 @@ def landslide_page():
     df['event_date'] = pd.to_datetime(df['event_date'], errors='coerce')
     df = df.dropna(subset=['event_date'])
     df.set_index('event_date', inplace=True)
-    event_time_series = df.resample('M').size()
+    event_time_series = df.resample('ME').size()
 
     fig3 = px.line(event_time_series, 
                    title="Event Distribution Over Time (Monthly Aggregated)",
@@ -337,22 +337,25 @@ def helpline_page():
     st.header("Emergency Helplines")
     st.write("""
     In case of emergencies related to natural disasters, please contact the following helplines:
-    - *National Disaster Management Authority (NDMA):* 1800-180-1234
-    - *State Emergency Services:* [Find your local number](https://www.ndma.gov.in/state-emergency-numbers)
-    - *Red Cross:* 1860-266-2345
-    - *Fire Department:* 101
-    - *Police Department:* 100
     """)
-    st.write("For real-time alerts and updates, download the [Emergency Alert App](https://www.emergencyalertapp.com).")
+    st.markdown("""
+    - **Red Cross:** 1860-266-2345
+    - **Fire Department:** 101
+    - **Police Department:** 100
+    - **NDRF:** 0671-2879711
+    - **NDMA:** 011-1070
+    - [Contact NDRF](https://www.ndrf.gov.in/contact-us)
+    - [Contact NDMA](https://ndma.gov.in/about-us/Contact-us)
+    """)
 
 # Function: Contact Us Page
 def contact_us_page():
     st.header("Contact Us")
     st.write("""
     For any inquiries or feedback, please reach out to us at:
-    - *Email:* support@disastermanagement.org
-    - *Phone:* +91-22-12345678
-    - *Address:* Disaster Management Building, 1st Floor, National Emergency Center, New Delhi, India
+    - **Email:** support@disastermanagement.org
+    - **Phone:** +91-22-12345678
+    - **Address:** Disaster Management Building, 1st Floor, National Emergency Center, New Delhi, India
     """)
     st.write("You can also fill out our [contact form](https://www.disastermanagement.org/contact).")
 
