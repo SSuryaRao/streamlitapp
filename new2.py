@@ -11,9 +11,70 @@ import plotly.express as px
 from ipyleaflet import Map, Marker, CircleMarker
 from streamlit.components.v1 import html
 import pydeck as pdk
+import requests
+from pymongo import MongoClient
+import schedule
+import time
+import threading
+import base64
 
-# Set page configuration
-st.set_page_config(page_title="Disaster Dashboard", page_icon="🌀")
+# MongoDB Atlas connection string (replace <username>, <password>, <cluster> with your own credentials)
+MONGO_URI = 'mongodb+srv://surya:mongo1234@cluster0.686u6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
+client = MongoClient(MONGO_URI)
+
+# Select the database and collection in MongoDB
+db = client['news_db']  # Database name
+collection = db['google_news_articles']  # Collection name
+
+# SerpApi parameters
+API_KEY = '4f2e701f069c18eb50de29437aab7f3cd83eda48f88c017f2845d692df40d120'  # Replace with your actual SerpApi key
+params = {
+    'q': 'flood',  # Search query (e.g., disaster-related news)
+    'tbm': 'nws',  # Google News search
+    'api_key': API_KEY
+}
+
+url = 'https://serpapi.com/search.json'
+    
+st.set_page_config(page_title="Disaster Management", page_icon="🌀")
+
+
+# def get_img_as_base64(file):
+#     with open(file, "rb") as f:
+#         data = f.read()
+#     return base64.b64encode(data).decode()
+
+# # Get base64 encoded image
+# img_path = "backimg.jpg"  # Replace with your image path
+# img = get_img_as_base64(img_path)
+# # Function to set background image using custom CSS
+# def set_background_image():
+#     page_img="""
+#         <style>
+#         [data-testid="stAppViewContainer"] {
+#         background-image: url("https://plus.unsplash.com/premium_photo-1672995168740-ca3455b070f8?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+#         background-size: cover;
+#         background-position: center;
+#         background-repeat: no-repeat;
+#         background-attachment: fixed;
+#         padding: 20px;
+#         }
+#         [data-testid="stHeader"] {
+#             background-color: rgba(0,0,0,0);
+#         }
+#         [data-testid="stSidebarContent"] > div:first-child{
+#         background-image: url("data:image/jpeg;base64,{img}");
+#         background-size: cover;
+#         }
+#         </style>
+#         """
+#     st.markdown(page_img,unsafe_allow_html=True
+#     )
+
+# # Set your background image URL
+# # Replace with your image URL
+# set_background_image()
+
 
 # Sidebar for page selection
 page = st.sidebar.radio("Select Page", ["Home", "Floods", "Landslide", "Earthquake", "Helpline", "Contact Us"])
@@ -54,6 +115,81 @@ capital Gangtok, the local government of the northeastern Indian state said.
     2. [Gujurat Flood Crisis](https://www.business-standard.com/india-news/gujarat-flooding-worsened-by-extensive-urban-development-shows-study-124090400115_1.html)
     3. [Assam Flood](https://www.downtoearth.org.in/natural-disasters/assam-floods-2024-unprecedented-timing-and-fury-grips-state)
     """)
+    def update_database():
+        print("Updating the database...")
+
+        # First, delete the old data
+        delete_result = collection.delete_many({})
+        print(f"Deleted {delete_result.deleted_count} old articles.")
+
+        # Fetch new data from SerpApi
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            news_articles = data.get('news_results', [])  # Get the news results
+            
+            # Loop through the articles and insert them into MongoDB
+            for article in news_articles:
+                try:
+                    # Prepare the document for MongoDB
+                    document = {
+                        'title': article['title'],  # Title of the article
+                        'link': article['link'],    # Link to the article
+                        'source': article.get('source', ''),  # News source (if available)
+                        'date': article.get('date', ''),  # Publication date (if available)
+                        'snippet': article.get('snippet', ''),  # Snippet/summary of the article
+                        'thumbnail': article.get('thumbnail', ''),  # Thumbnail image URL (if available)
+                    }
+                    
+                    # Insert the document into MongoDB
+                    result = collection.insert_one(document)
+                    print(f"Inserted article with ID: {result.inserted_id}")
+                except Exception as e:
+                    print(f"An error occurred while inserting data: {e}")
+        else:
+            print(f"Failed to fetch Google News. Status code: {response.status_code}")
+
+    def run_scheduler():
+        # Schedule the job to run at midnight
+        schedule.every().day.at("00:00").do(update_database)
+        
+        while True:
+            schedule.run_pending()
+            time.sleep(60)  # Check every minute
+
+    # Run the scheduler in a separate thread
+    def start_scheduler():
+        scheduler_thread = threading.Thread(target=run_scheduler)
+        scheduler_thread.daemon = True
+        scheduler_thread.start()
+
+    # Streamlit app logic
+    st.title('Current News Articles')
+
+    # Fetch news articles from MongoDB
+    news_articles = collection.find()
+
+    # Organize the display in rows with 2 articles per row
+    cols = st.columns(1)
+    col_idx = 0
+
+    for article in news_articles:
+        with cols[col_idx]:
+            # Display the thumbnail (if available) and the article details
+            if article.get('thumbnail'):
+                st.image(article['thumbnail'], width=200)
+            st.write(f"**Title**: {article['title']}")
+            st.write(f"**Source**: {article.get('source', 'Unknown')}")
+            st.write(f"**Date**: {article.get('date', 'Unknown')}")
+            st.write(f"**Snippet**: {article.get('snippet', 'No summary available')}")
+            st.write(f"[Read more]({article['link']})")
+        
+        # Alternate between the two columns
+        col_idx = (col_idx + 1) % 1
+
+    # Start the scheduler when the Streamlit app runs
+    start_scheduler()
     
     # Example visualizations for the Home page
     df = pd.read_csv('Disaster.csv')
@@ -271,12 +407,12 @@ def earthquake_page():
     # Display the plot in Streamlit
     st.plotly_chart(fig)
     # Create a scatter plot
-    fig = px.scatter(df, x="Magnitude", y="Depth", color="Location",
-                    size="Magnitude", hover_name="Location", 
-                    title="Magnitude vs Depth of Earthquakes")
+    # fig = px.scatter(df, x="Magnitude", y="Depth", color="Location",
+    #                 size="Magnitude", hover_name="Location", 
+    #                 title="Magnitude vs Depth of Earthquakes")
 
-    # Display the plot in Streamlit
-    st.plotly_chart(fig)
+    # # Display the plot in Streamlit
+    # st.plotly_chart(fig)
 
     magnitude_range = st.slider("Select Magnitude Range", 
                                 min_value=float(df['Magnitude'].min()), 
@@ -310,13 +446,13 @@ def earthquake_page():
     st.pydeck_chart(r)
 
 
-    # Create a 3D scatter plot
-    fig = px.scatter_3d(df, x="Longitude", y="Latitude", z="Depth", 
-                        color="Magnitude", size="Magnitude", 
-                        hover_name="Location", title="3D Scatter Plot of Earthquakes")
+    # # Create a 3D scatter plot
+    # fig = px.scatter_3d(df, x="Longitude", y="Latitude", z="Depth", 
+    #                     color="Magnitude", size="Magnitude", 
+    #                     hover_name="Location", title="3D Scatter Plot of Earthquakes")
 
-    # Display the plot in Streamlit
-    st.plotly_chart(fig)
+    # # Display the plot in Streamlit
+    # st.plotly_chart(fig)
 
     df = df.dropna(subset=['Latitude', 'Longitude'])
 
@@ -349,15 +485,15 @@ def helpline_page():
     """)
 
 # Function: Contact Us Page
-def contact_us_page():
-    st.header("Contact Us")
-    st.write("""
-    For any inquiries or feedback, please reach out to us at:
-    - **Email:** support@disastermanagement.org
-    - **Phone:** +91-22-12345678
-    - **Address:** Disaster Management Building, 1st Floor, National Emergency Center, New Delhi, India
-    """)
-    st.write("You can also fill out our [contact form](https://www.disastermanagement.org/contact).")
+# def contact_us_page():
+#     st.header("Contact Us")
+#     st.write("""
+#     For any inquiries or feedback, please reach out to us at:
+#     - **Email:** support@disastermanagement.org
+#     - **Phone:** +91-22-12345678
+#     - **Address:** Disaster Management Building, 1st Floor, National Emergency Center, New Delhi, India
+#     """)
+#     st.write("You can also fill out our [contact form](https://www.disastermanagement.org/contact).")
 
 # --------------------------------------
 # Run the page functions based on the sidebar selection
@@ -371,5 +507,5 @@ elif page == "Earthquake":
     earthquake_page()
 elif page == "Helpline":
     helpline_page()
-elif page == "Contact Us":
-    contact_us_page()
+# elif page == "Contact Us":
+#     contact_us_page()
