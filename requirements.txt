@@ -10,3 +10,4 @@ streamlit_folium==0.22.0
 ipyleaflet==0.19.2
 pydeck==0.9.1
 pymongo==4.8.0
+schedule==1.2.2
