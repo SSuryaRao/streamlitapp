@@ -20,15 +20,12 @@ import base64
 
 # MongoDB Atlas connection string (replace <username>, <password>, <cluster> with your own credentials)
 MONGO_URI = 'mongodb+srv://surya:mongo1234@cluster0.686u6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
-client = MongoClient(MONGO_URI)
-client =MongoClient("mongodb+srv://surya:mongo1234@cluster0.686u6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-    maxPoolSize=50,  # adjust this based on your needs
-    waitQueueTimeoutMS=5000  # optional
-)
-
 client = MongoClient(
-    "mongodb+srv://surya:mongo1234@cluster0.686u6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-    socketTimeoutMS=10000  # Close connections after 10 seconds of inactivity
+    MONGO_URI,
+    maxPoolSize=50,  # Maximum number of connections in the pool
+    waitQueueTimeoutMS=5000,  # Time to wait if the pool is full
+    socketTimeoutMS=10000,  # Close idle connections after 10 seconds
+    connectTimeoutMS=30000  # Wait up to 30 seconds when connecting to the server
 )
 
 # Select the database and collection in MongoDB
