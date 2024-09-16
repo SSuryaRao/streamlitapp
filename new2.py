@@ -267,6 +267,7 @@ capital Gangtok, the local government of the northeastern Indian state said.
 
     # Display the map
     folium_static(m)
+    client.close()
 
 # --------------------------------------
 # Function: Floods Page
