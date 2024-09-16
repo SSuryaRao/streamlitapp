@@ -109,7 +109,7 @@ set_bg_image(bg_image_base64)
 
 
 # Sidebar for page selection
-page = st.sidebar.radio("Select Page", ["Home", "Floods", "Landslide", "Earthquake", "Helpline", "Contact Us"])
+page = st.sidebar.radio("Select Page", ["Home", "Floods", "Landslide", "Earthquake", "Helpline"])
 
 # --------------------------------------
 # Function: Home Page
